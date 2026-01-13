@@ -29,33 +29,59 @@ jobs:
         run: pip install -r requirements.txt
         
       - name: Run scraper
+        id: scraper
+        run: python scrape_srx_price_index.py
+        continue-on-error: true
+        
+      - name: List output directory
         run: |
-          if [ "${{ inputs.debug_mode }}" == "true" ]; then
-            python scrape_srx_price_index.py --debug
-          else
-            python scrape_srx_price_index.py
-          fi
+          echo "=== Output directory contents ==="
+          ls -la output/ 2>/dev/null || echo "output/ directory not found"
+          echo "=== Debug directory contents ==="
+          ls -la debug/ 2>/dev/null || echo "debug/ directory not found"
+        continue-on-error: true
           
       - name: Upload output as artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: srx-price-index-${{ github.run_number }}
           path: output/
           retention-days: 90
+          if-no-files-found: warn
           
-      - name: Upload debug files (if debug mode)
-        if: ${{ inputs.debug_mode == true }}
+      - name: Upload debug files
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debug-files-${{ github.run_number }}
           path: debug/
           retention-days: 7
+          if-no-files-found: warn
+          
+      - name: Check scraper result
+        if: steps.scraper.outcome == 'failure'
+        run: |
+          echo "::error::Scraper failed. Check debug artifacts for details."
+          exit 1
           
       - name: Get current date
         id: date
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        
+      - name: Check if zip exists
+        id: check_zip
+        run: |
+          if [ -f "output/srx_price_index.zip" ]; then
+            echo "zip_exists=true" >> $GITHUB_OUTPUT
+            echo "✓ Zip file found"
+          else
+            echo "zip_exists=false" >> $GITHUB_OUTPUT
+            echo "✗ Zip file not found"
+          fi
           
       - name: Create Release
+        if: steps.check_zip.outputs.zip_exists == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: data-${{ steps.date.outputs.date }}-${{ github.run_number }}

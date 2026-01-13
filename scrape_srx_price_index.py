@@ -29,9 +29,17 @@ class SRXPriceIndexScraper:
             debug: If True, save page source and screenshots for debugging
         """
         self.base_url = base_url
-        self.delay = delay
         self.debug = debug
         self.driver = None
+        
+        # Detect CI environment and increase delays
+        self.is_ci = os.environ.get('CI', 'false').lower() == 'true'
+        if self.is_ci:
+            self.delay = max(delay, 4)  # Minimum 4 seconds delay in CI
+            self.debug = True  # Always debug in CI for troubleshooting
+            print(f"  ℹ CI environment detected - delay set to {self.delay}s, debug mode enabled")
+        else:
+            self.delay = delay
         
         # Define all dropdown options
         self.property_types = [
@@ -110,8 +118,36 @@ class SRXPriceIndexScraper:
         """Navigate to the SRX price index page."""
         print(f"  → Navigating to {self.base_url}...")
         self.driver.get(self.base_url)
-        time.sleep(self.delay * 2)  # Wait for page to load
-        print(f"  ✓ Page loaded")
+        
+        # Wait longer in CI for page to fully load
+        wait_time = self.delay * 3 if self.is_ci else self.delay * 2
+        time.sleep(wait_time)
+        
+        # Try to dismiss any cookie consent or popup
+        try:
+            # Common cookie consent button selectors
+            consent_selectors = [
+                "//button[contains(text(), 'Accept')]",
+                "//button[contains(text(), 'OK')]",
+                "//button[contains(text(), 'Got it')]",
+                "//button[contains(@class, 'accept')]",
+                "//a[contains(@class, 'close')]",
+            ]
+            for selector in consent_selectors:
+                try:
+                    btn = self.driver.find_element(By.XPATH, selector)
+                    if btn.is_displayed():
+                        btn.click()
+                        print(f"  ℹ Dismissed popup/consent dialog")
+                        time.sleep(1)
+                        break
+                except:
+                    continue
+        except:
+            pass
+        
+        # Log page state for debugging
+        print(f"  ✓ Page loaded (title: {self.driver.title[:50]}...)" if len(self.driver.title) > 50 else f"  ✓ Page loaded (title: {self.driver.title})")
         
     def find_dropdown_by_label(self, label_text):
         """
