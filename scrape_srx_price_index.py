@@ -70,38 +70,68 @@ class SRXPriceIndexScraper:
     def setup_driver(self):
         """Initialize Chrome WebDriver with appropriate options."""
         
-        # Use undetected-chromedriver in CI to bypass Cloudflare
-        if self.is_ci and UC_AVAILABLE:
-            print("  ℹ Using undetected-chromedriver to bypass Cloudflare")
-            
-            options = uc.ChromeOptions()
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--disable-gpu')
-            options.add_argument('--window-size=1920,1080')
-            options.add_argument('--headless=new')
-            
-            self.driver = uc.Chrome(options=options, headless=True)
-            self.driver.implicitly_wait(15)
-            
+        # Check if we have a display (xvfb provides DISPLAY env var)
+        has_display = os.environ.get('DISPLAY') is not None
+        
+        if self.is_ci:
+            if has_display:
+                # xvfb is available - run non-headless with undetected-chromedriver
+                print(f"  ℹ CI with xvfb detected (DISPLAY={os.environ.get('DISPLAY')})")
+                print("  ℹ Using undetected-chromedriver in non-headless mode")
+                
+                if UC_AVAILABLE:
+                    options = uc.ChromeOptions()
+                    options.add_argument('--no-sandbox')
+                    options.add_argument('--disable-dev-shm-usage')
+                    options.add_argument('--window-size=1920,1080')
+                    # NO headless - using xvfb virtual display
+                    
+                    self.driver = uc.Chrome(options=options, headless=False)
+                    self.driver.implicitly_wait(15)
+                else:
+                    # Fallback to regular selenium with xvfb
+                    options = webdriver.ChromeOptions()
+                    options.add_argument('--no-sandbox')
+                    options.add_argument('--disable-dev-shm-usage')
+                    options.add_argument('--window-size=1920,1080')
+                    options.add_argument('--disable-blink-features=AutomationControlled')
+                    
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service, options=options)
+                    self.driver.implicitly_wait(15)
+            else:
+                # No display - must use headless
+                print("  ℹ CI without display - using headless mode")
+                
+                if UC_AVAILABLE:
+                    options = uc.ChromeOptions()
+                    options.add_argument('--no-sandbox')
+                    options.add_argument('--disable-dev-shm-usage')
+                    options.add_argument('--disable-gpu')
+                    options.add_argument('--window-size=1920,1080')
+                    options.add_argument('--headless=new')
+                    
+                    self.driver = uc.Chrome(options=options, headless=True)
+                    self.driver.implicitly_wait(15)
+                else:
+                    options = webdriver.ChromeOptions()
+                    options.add_argument('--headless=new')
+                    options.add_argument('--no-sandbox')
+                    options.add_argument('--disable-dev-shm-usage')
+                    options.add_argument('--disable-gpu')
+                    options.add_argument('--window-size=1920,1080')
+                    
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service, options=options)
+                    self.driver.implicitly_wait(10)
         else:
-            # Standard selenium for local use
+            # Local development - standard selenium
             options = webdriver.ChromeOptions()
             options.add_argument('--start-maximized')
             options.add_argument('--disable-blink-features=AutomationControlled')
             options.add_experimental_option("excludeSwitches", ["enable-automation"])
             options.add_experimental_option('useAutomationExtension', False)
             
-            if self.is_ci:
-                # Fallback if undetected-chromedriver not available
-                print("  ℹ Running in CI environment - enabling headless mode")
-                options.add_argument('--headless=new')
-                options.add_argument('--no-sandbox')
-                options.add_argument('--disable-dev-shm-usage')
-                options.add_argument('--disable-gpu')
-                options.add_argument('--window-size=1920,1080')
-            
-            # Use webdriver-manager to handle ChromeDriver automatically
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=options)
             self.driver.implicitly_wait(10)
