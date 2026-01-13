@@ -60,10 +60,19 @@ class SRXPriceIndexScraper:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
         
-        if not self.debug:
-            # Run headless in non-debug mode (optional - comment out if you want to see the browser)
-            # options.add_argument('--headless')
-            pass
+        # Detect CI environment (GitHub Actions, etc.)
+        is_ci = os.environ.get('CI', 'false').lower() == 'true'
+        
+        if is_ci:
+            # Required flags for running Chrome in CI/headless environments
+            print("  ℹ Running in CI environment - enabling headless mode")
+            options.add_argument('--headless=new')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-gpu')
+            options.add_argument('--window-size=1920,1080')
+            options.add_argument('--disable-extensions')
+            options.add_argument('--remote-debugging-port=9222')
         
         # Use webdriver-manager to handle ChromeDriver automatically
         service = Service(ChromeDriverManager().install())
