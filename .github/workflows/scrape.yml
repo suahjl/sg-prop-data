@@ -1,0 +1,77 @@
+name: Scrape SRX Price Index
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      debug_mode:
+        description: 'Run in debug mode (saves screenshots)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@latest
+        
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        
+      - name: Run scraper
+        run: |
+          if [ "${{ inputs.debug_mode }}" == "true" ]; then
+            python scrape_srx_price_index.py --debug
+          else
+            python scrape_srx_price_index.py
+          fi
+          
+      - name: Upload output as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: srx-price-index-${{ github.run_number }}
+          path: output/
+          retention-days: 90
+          
+      - name: Upload debug files (if debug mode)
+        if: ${{ inputs.debug_mode == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-files-${{ github.run_number }}
+          path: debug/
+          retention-days: 7
+          
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: data-${{ steps.date.outputs.date }}-${{ github.run_number }}
+          name: SRX Price Index Data (${{ steps.date.outputs.date }})
+          files: output/srx_price_index.zip
+          body: |
+            ## SRX Price Index Data
+            
+            Scraped on: ${{ steps.date.outputs.date }}
+            
+            ### Contents
+            - 24 time series files (3 property types × 2 sale types × 4 market segments)
+            - Date range: Jan 1995 to latest available
+            - Format: CSV files with columns (Date, Value, % Change)
+            
+            ### Download
+            Click on `srx_price_index.zip` below to download all data.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
