@@ -17,6 +17,13 @@ import os
 import zipfile
 import glob
 
+# Try to import undetected-chromedriver for bypassing Cloudflare
+try:
+    import undetected_chromedriver as uc
+    UC_AVAILABLE = True
+except ImportError:
+    UC_AVAILABLE = False
+
 
 class SRXPriceIndexScraper:
     def __init__(self, base_url="https://www.srx.com.sg/price-index", delay=2, debug=False):
@@ -62,30 +69,42 @@ class SRXPriceIndexScraper:
         
     def setup_driver(self):
         """Initialize Chrome WebDriver with appropriate options."""
-        options = webdriver.ChromeOptions()
-        options.add_argument('--start-maximized')
-        options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
         
-        # Detect CI environment (GitHub Actions, etc.)
-        is_ci = os.environ.get('CI', 'false').lower() == 'true'
-        
-        if is_ci:
-            # Required flags for running Chrome in CI/headless environments
-            print("  ℹ Running in CI environment - enabling headless mode")
-            options.add_argument('--headless=new')
+        # Use undetected-chromedriver in CI to bypass Cloudflare
+        if self.is_ci and UC_AVAILABLE:
+            print("  ℹ Using undetected-chromedriver to bypass Cloudflare")
+            
+            options = uc.ChromeOptions()
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-gpu')
             options.add_argument('--window-size=1920,1080')
-            options.add_argument('--disable-extensions')
-            options.add_argument('--remote-debugging-port=9222')
-        
-        # Use webdriver-manager to handle ChromeDriver automatically
-        service = Service(ChromeDriverManager().install())
-        self.driver = webdriver.Chrome(service=service, options=options)
-        self.driver.implicitly_wait(10)
+            options.add_argument('--headless=new')
+            
+            self.driver = uc.Chrome(options=options, headless=True)
+            self.driver.implicitly_wait(15)
+            
+        else:
+            # Standard selenium for local use
+            options = webdriver.ChromeOptions()
+            options.add_argument('--start-maximized')
+            options.add_argument('--disable-blink-features=AutomationControlled')
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_experimental_option('useAutomationExtension', False)
+            
+            if self.is_ci:
+                # Fallback if undetected-chromedriver not available
+                print("  ℹ Running in CI environment - enabling headless mode")
+                options.add_argument('--headless=new')
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+                options.add_argument('--disable-gpu')
+                options.add_argument('--window-size=1920,1080')
+            
+            # Use webdriver-manager to handle ChromeDriver automatically
+            service = Service(ChromeDriverManager().install())
+            self.driver = webdriver.Chrome(service=service, options=options)
+            self.driver.implicitly_wait(10)
         
     def close_driver(self):
         """Close the browser driver."""
