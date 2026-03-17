@@ -1,4 +1,4 @@
-name: Scrape SRX Price Index
+name: Scrape SRX Price & Rent Index
 
 on:
   workflow_dispatch:  # Manual trigger only
@@ -33,13 +33,15 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
         
-      - name: Run scraper with xvfb (virtual display)
+      - name: Run scrapers with xvfb (virtual display)
         id: scraper
         run: |
           export DISPLAY=:99
           Xvfb :99 -screen 0 1920x1080x24 &
           sleep 3
           python scrape_srx_price_index.py
+          python scrape_srx_rent_index.py
+          python process_and_zip.py
         continue-on-error: true
         
       - name: List output directory
@@ -94,15 +96,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: data-${{ steps.date.outputs.date }}-${{ github.run_number }}
-          name: SRX Price Index Data (${{ steps.date.outputs.date }})
+          name: SRX Price & Rent Index Data (${{ steps.date.outputs.date }})
           files: output/srx_price_index.zip
           body: |
-            ## SRX Price Index Data
+            ## SRX Price & Rent Index Data
             
             Scraped on: ${{ steps.date.outputs.date }}
             
             ### Contents
-            - 24 time series files (3 property types × 2 sale types × 4 market segments)
+            - **Price index**: 24 time series files (3 property types × 2 sale types × 4 market segments)
+            - **Rent index**: time series files (property types × property subtypes × market segments)
             - Date range: Jan 1995 to latest available
             - Format: CSV files with columns (Date, Value, % Change)
             

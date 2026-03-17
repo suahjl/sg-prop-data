@@ -1,8 +1,8 @@
 """
-Utility script to process existing .txt files:
+Utility script to process existing .txt files (price and rent indices):
 1. Convert dates from "Nov 2025" → sort by "2025-11" → output as "nov-2025"
 2. Sort data ascending (oldest observation first)
-3. Create a zip archive with .csv extensions
+3. Create a zip archive with .csv extensions (includes both price and rent index files)
 
 Usage:
     python process_and_zip.py
@@ -105,13 +105,15 @@ def process_dataframe(df):
 
 def process_files(output_dir="output"):
     """
-    Process all .txt files in the output directory.
+    Process all .txt files in the output directory (price and rent indices).
     """
-    txt_files = glob.glob(os.path.join(output_dir, "srx_price_index_*.txt"))
-    
+    price_files = glob.glob(os.path.join(output_dir, "srx_price_index_*.txt"))
+    rent_files = glob.glob(os.path.join(output_dir, "srx_rent_index_*.txt"))
+    txt_files = sorted(price_files) + sorted(rent_files)
+
     if not txt_files:
         print(f"⚠ No .txt files found in {output_dir}/")
-        print("  Run the scraper first: python scrape_srx_price_index.py")
+        print("  Run the scrapers first: python scrape_srx_price_index.py, python scrape_srx_rent_index.py")
         return []
     
     print(f"Found {len(txt_files)} file(s) to process")
@@ -157,16 +159,18 @@ def process_files(output_dir="output"):
 
 def create_zip_archive(output_dir="output", zip_name="srx_price_index.zip"):
     """
-    Create a zip archive containing all .txt files as .csv files.
+    Create a zip archive containing all price and rent index .txt files as .csv files.
     """
     zip_filepath = os.path.join(output_dir, zip_name)
-    
+
     print(f"\n{'='*60}")
     print(f"Creating zip archive: {zip_filepath}")
     print("-" * 60)
-    
-    txt_files = glob.glob(os.path.join(output_dir, "srx_price_index_*.txt"))
-    
+
+    price_files = glob.glob(os.path.join(output_dir, "srx_price_index_*.txt"))
+    rent_files = glob.glob(os.path.join(output_dir, "srx_rent_index_*.txt"))
+    txt_files = sorted(price_files) + sorted(rent_files)
+
     if not txt_files:
         print(f"⚠ No .txt files found in {output_dir}/")
         return
@@ -191,29 +195,29 @@ def create_zip_archive(output_dir="output", zip_name="srx_price_index.zip"):
 def main():
     """Main function to process files and create zip."""
     print("=" * 60)
-    print("SRX PRICE INDEX - PROCESS AND ZIP")
+    print("SRX PRICE & RENT INDEX - PROCESS AND ZIP")
     print("=" * 60)
-    
+
     output_dir = "output"
-    
-    # Step 1: Process all files
+
+    # Step 1: Process all files (price and rent indices)
     print("\n[1/2] PROCESSING FILES")
     print("=" * 60)
     processed_files = process_files(output_dir)
-    
+
     if not processed_files:
         print("\nNo files processed. Exiting.")
         return
-    
-    # Step 2: Create zip archive
+
+    # Step 2: Create zip archive (price + rent indices)
     print("\n[2/2] CREATING ZIP ARCHIVE")
     create_zip_archive(output_dir)
-    
+
     print("\n" + "=" * 60)
     print("COMPLETE!")
     print("=" * 60)
     print(f"Processed {len(processed_files)} file(s)")
-    print(f"Output: {output_dir}/srx_price_index.zip")
+    print(f"Output: {output_dir}/srx_price_index.zip (includes price and rent indices)")
 
 
 if __name__ == "__main__":
