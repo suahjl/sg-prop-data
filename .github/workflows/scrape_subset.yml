@@ -1,7 +1,7 @@
 name: Scrape SRX Price & Rent Index (only all private non-landed)
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch: # Manual trigger only
     inputs:
       debug_mode:
         description: 'Run in debug mode (saves screenshots)'
