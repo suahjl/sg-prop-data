@@ -424,7 +424,7 @@ class SRXRentIndexScraper:
                     print(f"    ✗ Warning: Could not select property type: {property_type}")
             time.sleep(self.delay)
 
-            if 'subtype' in dropdowns:
+            if property_subtype and 'subtype' in dropdowns:
                 if self.select_dropdown_option(dropdowns['subtype'], property_subtype):
                     print(f"    ✓ Property Subtype: {property_subtype}")
                 else:
@@ -518,10 +518,11 @@ class SRXRentIndexScraper:
 
     def generate_filename(self, property_type, property_subtype, market_segment):
         """Generate a filename for the output file."""
-        prop_clean = property_type.replace(" ", "_").lower()
-        subtype_clean = property_subtype.replace(" ", "_").lower()
-        market_clean = market_segment.replace(" ", "_").lower()
-        return f"srx_rent_index_{prop_clean}_{subtype_clean}_{market_clean}.txt"
+        parts = ["srx_rent_index"]
+        for part in [property_type, property_subtype, market_segment]:
+            if part:
+                parts.append(part.replace(" ", "_").lower())
+        return "_".join(parts) + ".txt"
 
     def save_data(self, df, filename):
         """Save DataFrame to CSV file with .txt extension."""
@@ -590,7 +591,9 @@ class SRXRentIndexScraper:
         try:
             # Build combinations: for each property type, get subtypes, then cross with market segments
             for property_type in self.property_types:
-                if hasattr(self, '_fixed_subtype'):
+                if hasattr(self, '_skip_subtype') and self._skip_subtype:
+                    subtypes = [None]
+                elif hasattr(self, '_fixed_subtype'):
                     subtypes = [self._fixed_subtype]
                 else:
                     subtypes = self.get_property_subtypes_for_type(property_type)
@@ -647,18 +650,21 @@ def main():
     parser.add_argument('--debug', '-d', action='store_true', help='Save screenshots and page source for debugging')
     parser.add_argument('--property', type=str, help='Filter by property type (e.g. "Private Non-Landed")')
     parser.add_argument('--subtype', type=str, help='Filter by property subtype (e.g. "All")')
+    parser.add_argument('--no-subtype', action='store_true', help='Skip the property subtype dropdown entirely')
     parser.add_argument('--market', type=str, help='Filter by market segment (e.g. "All")')
     args = parser.parse_args()
 
     scraper = SRXRentIndexScraper(debug=args.debug)
 
     # If filters are provided, override the scrape_all loop
-    if args.property or args.subtype or args.market:
+    if args.property or args.subtype or args.no_subtype or args.market:
         property_types = [args.property] if args.property else scraper.property_types
         market_segments = [args.market] if args.market else scraper.market_segments
         scraper.property_types = property_types
         scraper.market_segments = market_segments
-        if args.subtype:
+        if args.no_subtype:
+            scraper._skip_subtype = True
+        elif args.subtype:
             scraper._fixed_subtype = args.subtype
 
     scraper.scrape_all()

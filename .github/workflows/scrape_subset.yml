@@ -40,7 +40,7 @@ jobs:
           Xvfb :99 -screen 0 1920x1080x24 &
           sleep 3
           python scrape_srx_price_index.py --property "Private Non-Landed" --sale "All Sale" --market "All"
-          python scrape_srx_rent_index.py --property "Private Non-Landed" --subtype "All" --market "All"
+          python scrape_srx_rent_index.py --property "Private Non-Landed" --no-subtype --market "All"
           python process_and_zip.py
         continue-on-error: true
 
@@ -105,7 +105,7 @@ jobs:
 
             ### Contents
             - **Price index**: `srx_price_index_private_non-landed_all_sale_all.csv`
-            - **Rent index**: `srx_rent_index_private_non-landed_all_all.csv`
+            - **Rent index**: `srx_rent_index_private_non-landed_all.csv`
             - Date range: Jan 1995 to latest available
             - Format: CSV files with columns (Date, Value, % Change)
 
