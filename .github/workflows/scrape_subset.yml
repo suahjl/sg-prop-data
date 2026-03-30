@@ -33,7 +33,7 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Run scrapers with xvfb (subset: all private non-landed)
+      - name: Run scrapers with xvfb (all private non-landed subset)
         id: scraper
         run: |
           export DISPLAY=:99
