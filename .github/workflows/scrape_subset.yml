@@ -1,0 +1,115 @@
+name: Scrape SRX Price & Rent Index (only all private non-landed)
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      debug_mode:
+        description: 'Run in debug mode (saves screenshots)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@latest
+
+      - name: Install xvfb and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scrapers with xvfb (subset: all private non-landed)
+        id: scraper
+        run: |
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 3
+          python scrape_srx_price_index.py --property "Private Non-Landed" --sale "All Sale" --market "All"
+          python scrape_srx_rent_index.py --property "Private Non-Landed" --subtype "All" --market "All"
+          python process_and_zip.py
+        continue-on-error: true
+
+      - name: List output directory
+        run: |
+          echo "=== Output directory contents ==="
+          ls -la output/ 2>/dev/null || echo "output/ directory not found"
+          echo "=== Debug directory contents ==="
+          ls -la debug/ 2>/dev/null || echo "debug/ directory not found"
+        continue-on-error: true
+
+      - name: Upload output as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: srx-subset-private-nonlanded-${{ github.run_number }}
+          path: output/
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Upload debug files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-files-subset-${{ github.run_number }}
+          path: debug/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Check scraper result
+        if: steps.scraper.outcome == 'failure'
+        run: |
+          echo "::error::Scraper failed. Check debug artifacts for details."
+          exit 1
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Check if zip exists
+        id: check_zip
+        run: |
+          if [ -f "output/srx_price_index.zip" ]; then
+            echo "zip_exists=true" >> $GITHUB_OUTPUT
+            echo "✓ Zip file found"
+          else
+            echo "zip_exists=false" >> $GITHUB_OUTPUT
+            echo "✗ Zip file not found"
+          fi
+
+      - name: Create Release
+        if: steps.check_zip.outputs.zip_exists == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: data-subset-${{ steps.date.outputs.date }}-${{ github.run_number }}
+          name: SRX Price & Rent Index - Private Non-Landed (${{ steps.date.outputs.date }})
+          files: output/srx_price_index.zip
+          body: |
+            ## SRX Price & Rent Index Data (Private Non-Landed Subset)
+
+            Scraped on: ${{ steps.date.outputs.date }}
+
+            ### Contents
+            - **Price index**: `srx_price_index_private_non-landed_all_sale_all.csv`
+            - **Rent index**: `srx_rent_index_private_non-landed_all_all.csv`
+            - Date range: Jan 1995 to latest available
+            - Format: CSV files with columns (Date, Value, % Change)
+
+            ### Download
+            Click on `srx_price_index.zip` below to download the data.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

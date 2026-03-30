@@ -686,12 +686,26 @@ class SRXPriceIndexScraper:
 
 def main():
     """Main function to run the scraper."""
-    import sys
-    
-    # Check for debug flag
-    debug = '--debug' in sys.argv or '-d' in sys.argv
-    
-    scraper = SRXPriceIndexScraper(debug=debug)
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Scrape SRX Price Index data')
+    parser.add_argument('--debug', '-d', action='store_true', help='Save screenshots and page source for debugging')
+    parser.add_argument('--property', type=str, help='Filter by property type (e.g. "Private Non-Landed")')
+    parser.add_argument('--sale', type=str, help='Filter by sale type (e.g. "All Sale")')
+    parser.add_argument('--market', type=str, help='Filter by market segment (e.g. "All")')
+    args = parser.parse_args()
+
+    scraper = SRXPriceIndexScraper(debug=args.debug)
+
+    # If filters are provided, scrape only the specified combination
+    if args.property or args.sale or args.market:
+        property_types = [args.property] if args.property else scraper.property_types
+        sale_types = [args.sale] if args.sale else scraper.sale_types
+        market_segments = [args.market] if args.market else scraper.market_segments
+        scraper.property_types = property_types
+        scraper.sale_types = sale_types
+        scraper.market_segments = market_segments
+
     scraper.scrape_all()
 
 

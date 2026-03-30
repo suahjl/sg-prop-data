@@ -590,7 +590,10 @@ class SRXRentIndexScraper:
         try:
             # Build combinations: for each property type, get subtypes, then cross with market segments
             for property_type in self.property_types:
-                subtypes = self.get_property_subtypes_for_type(property_type)
+                if hasattr(self, '_fixed_subtype'):
+                    subtypes = [self._fixed_subtype]
+                else:
+                    subtypes = self.get_property_subtypes_for_type(property_type)
                 for subtype in subtypes:
                     for market_segment in self.market_segments:
                         all_combinations.append((property_type, subtype, market_segment))
@@ -638,9 +641,26 @@ class SRXRentIndexScraper:
 
 def main():
     """Main function to run the scraper."""
-    import sys
-    debug = '--debug' in sys.argv or '-d' in sys.argv
-    scraper = SRXRentIndexScraper(debug=debug)
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Scrape SRX Rent Index data')
+    parser.add_argument('--debug', '-d', action='store_true', help='Save screenshots and page source for debugging')
+    parser.add_argument('--property', type=str, help='Filter by property type (e.g. "Private Non-Landed")')
+    parser.add_argument('--subtype', type=str, help='Filter by property subtype (e.g. "All")')
+    parser.add_argument('--market', type=str, help='Filter by market segment (e.g. "All")')
+    args = parser.parse_args()
+
+    scraper = SRXRentIndexScraper(debug=args.debug)
+
+    # If filters are provided, override the scrape_all loop
+    if args.property or args.subtype or args.market:
+        property_types = [args.property] if args.property else scraper.property_types
+        market_segments = [args.market] if args.market else scraper.market_segments
+        scraper.property_types = property_types
+        scraper.market_segments = market_segments
+        if args.subtype:
+            scraper._fixed_subtype = args.subtype
+
     scraper.scrape_all()
 
 
